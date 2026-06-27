@@ -24,16 +24,9 @@ export interface LeadMessageInput {
 }
 
 const LEAD_HEADERS: Record<LeadType, string> = {
-  unqualified: "🟡 НЕ КВАЛ. ЛИД — узнал цену",
-  qualified: "🟢 КВАЛ. ЛИД — готов сдать",
+  unqualified: "🟡 НЕ КВАЛ — узнал цену",
+  qualified: "🟢 КВАЛ — получить деньги",
 };
-
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-}
 
 function labelFromOptions<T extends string>(
   id: T | null,
@@ -73,35 +66,57 @@ function formatMoscowDateTime(isoDate: string): string {
   }).format(new Date(isoDate));
 }
 
-export function formatLeadMessage(input: LeadMessageInput): string {
+export function formatLeadComments(input: LeadMessageInput): string {
   const { contact, valuation, price, leadType, createdAt } = input;
   const telegram = contact.telegram.trim() || "не указан";
 
   const lines = [
-    `<b>${escapeHtml(LEAD_HEADERS[leadType])}</b>`,
+    LEAD_HEADERS[leadType],
     "",
-    `<b>Устройство</b>`,
-    `Модель: ${escapeHtml(formatModelLabel(valuation.model))}`,
-    `Память: ${escapeHtml(formatStorageLabel(valuation.storage))}`,
-    `SIM: ${escapeHtml(formatSimLabel(valuation.sim))}`,
+    "Устройство",
+    `Модель: ${formatModelLabel(valuation.model)}`,
+    `Память: ${formatStorageLabel(valuation.storage)}`,
+    `SIM: ${formatSimLabel(valuation.sim)}`,
     "",
-    `<b>Состояние</b>`,
-    `АКБ: ${escapeHtml(`${valuation.batteryHealth}%`)}`,
-    `Экран: ${escapeHtml(labelFromOptions(valuation.screenCondition, SCREEN_CONDITIONS))}`,
-    `Корпус: ${escapeHtml(labelFromOptions(valuation.bodyCondition, BODY_CONDITIONS))}`,
-    `Face ID: ${escapeHtml(formatBoolean(valuation.faceIdWorks, "Работает", "Не работает"))}`,
-    `Камеры: ${escapeHtml(formatBoolean(valuation.camerasWork, "Работают", "Не работают"))}`,
-    `Ремонт: ${escapeHtml(labelFromOptions(valuation.repairHistory, REPAIR_OPTIONS))}`,
-    `Комплект: не указано`,
+    "Состояние",
+    `АКБ: ${valuation.batteryHealth}%`,
+    `Экран: ${labelFromOptions(valuation.screenCondition, SCREEN_CONDITIONS)}`,
+    `Корпус: ${labelFromOptions(valuation.bodyCondition, BODY_CONDITIONS)}`,
+    `Face ID: ${formatBoolean(valuation.faceIdWorks, "Работает", "Не работает")}`,
+    `Камеры: ${formatBoolean(valuation.camerasWork, "Работают", "Не работают")}`,
+    `Ремонт: ${labelFromOptions(valuation.repairHistory, REPAIR_OPTIONS)}`,
+    "Комплект: не указано",
     "",
-    `<b>💰 Итоговая цена выкупа:</b> ${escapeHtml(formatPrice(price))} ₽`,
+    `Итоговая цена выкупа: ${formatPrice(price)} ₽`,
     "",
-    `<b>Контакт</b>`,
-    `Телефон: ${escapeHtml(contact.phone)}`,
-    `Telegram: ${escapeHtml(telegram)}`,
+    "Контакт",
+    `Телефон: ${contact.phone}`,
+    `Telegram: ${telegram}`,
     "",
-    `🕐 ${escapeHtml(formatMoscowDateTime(createdAt))} (МСК)`,
+    `${formatMoscowDateTime(createdAt)} (МСК)`,
   ];
 
   return lines.join("\n");
+}
+
+export function buildBitrixLeadPayload(input: LeadMessageInput) {
+  const model = formatModelLabel(input.valuation.model);
+  const storage = formatStorageLabel(input.valuation.storage);
+  const sim = formatSimLabel(input.valuation.sim);
+
+  return {
+    fields: {
+      TITLE: `Заявка с сайта iphonecash — ${model} ${storage} ${sim}`,
+      NAME: "Клиент с сайта",
+      PHONE: [{ VALUE: input.contact.phone, VALUE_TYPE: "WORK" }],
+      COMMENTS: formatLeadComments(input),
+      SOURCE_DESCRIPTION: input.leadType,
+    },
+  };
+}
+
+export function getBitrixWebhookUrl(): string | null {
+  const raw = process.env.BITRIX_WEBHOOK_URL?.trim();
+  if (!raw) return null;
+  return raw.endsWith("/") ? raw : `${raw}/`;
 }

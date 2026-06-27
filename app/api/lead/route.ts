@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { formatLeadMessage } from "@/lib/format-lead-message";
+import { buildBitrixLeadPayload, getBitrixWebhookUrl } from "@/lib/format-lead-message";
 import type { SaveLeadInput } from "@/lib/save-lead";
 import type { LeadType } from "@/lib/types";
 
@@ -37,22 +37,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: "Invalid payload" }, { status: 400 });
     }
 
-    const token = process.env.TELEGRAM_BOT_TOKEN?.trim();
-    const chatId = process.env.TELEGRAM_CHAT_ID?.trim();
+    const webhookUrl = getBitrixWebhookUrl();
 
-    if (!token || !chatId) {
-      console.error(
-        "[api/lead] TELEGRAM env vars missing:",
-        !token ? "TELEGRAM_BOT_TOKEN empty" : "TELEGRAM_BOT_TOKEN set",
-        !chatId ? "TELEGRAM_CHAT_ID empty" : "TELEGRAM_CHAT_ID set",
-      );
+    if (!webhookUrl) {
+      console.error("[api/lead] BITRIX_WEBHOOK_URL missing");
       return NextResponse.json({ ok: false, error: "Service unavailable" }, { status: 500 });
     }
 
     const createdAt =
       typeof body.createdAt === "string" ? body.createdAt : new Date().toISOString();
 
-    const text = formatLeadMessage({
+    const bitrixPayload = buildBitrixLeadPayload({
       contact: body.contact,
       valuation: body.valuation,
       price: body.price,
@@ -60,45 +55,44 @@ export async function POST(request: Request) {
       createdAt,
     });
 
-    console.info("[api/lead] Sending to Telegram:", {
+    console.info("[api/lead] Sending to Bitrix24:", {
       leadType: body.leadType,
-      chatId,
-      textLength: text.length,
+      title: bitrixPayload.fields.TITLE,
     });
 
-    const telegramResponse = await fetch(
-      `https://api.telegram.org/bot${token}/sendMessage`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          chat_id: chatId,
-          text,
-          parse_mode: "HTML",
-        }),
-      },
-    );
+    const bitrixResponse = await fetch(`${webhookUrl}crm.lead.add.json`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(bitrixPayload),
+    });
 
-    const rawTelegramBody = await telegramResponse.text();
-    let telegramBody: unknown;
+    const rawBitrixBody = await bitrixResponse.text();
+    let bitrixBody: unknown;
 
     try {
-      telegramBody = JSON.parse(rawTelegramBody) as unknown;
+      bitrixBody = JSON.parse(rawBitrixBody) as unknown;
     } catch {
-      telegramBody = { ok: false, description: rawTelegramBody };
+      bitrixBody = { error: rawBitrixBody };
     }
 
-    console.info("[api/lead] Telegram response:", {
-      status: telegramResponse.status,
-      ok: telegramResponse.ok,
-      body: telegramBody,
+    console.info("[api/lead] Bitrix24 response:", {
+      status: bitrixResponse.status,
+      ok: bitrixResponse.ok,
+      body: bitrixBody,
     });
 
-    if (!telegramResponse.ok) {
+    if (!bitrixResponse.ok) {
       return NextResponse.json({ ok: false, error: "Delivery failed" }, { status: 500 });
     }
 
-    return NextResponse.json({ ok: true });
+    const result = bitrixBody as { result?: number; error?: string; error_description?: string };
+
+    if (result.error || result.result === undefined) {
+      console.error("[api/lead] Bitrix24 API error:", bitrixBody);
+      return NextResponse.json({ ok: false, error: "Delivery failed" }, { status: 500 });
+    }
+
+    return NextResponse.json({ ok: true, leadId: result.result });
   } catch (error) {
     console.error("[api/lead] Unexpected error:", error);
     return NextResponse.json({ ok: false, error: "Internal error" }, { status: 500 });

@@ -9,7 +9,7 @@ export interface SaveLeadInput {
   leadType: LeadType;
 }
 
-async function sendLeadToTelegram(payload: {
+async function sendLeadToCrm(payload: {
   contact: LeadFormData;
   valuation: ValuationFormData;
   price: number;
@@ -29,7 +29,7 @@ async function sendLeadToTelegram(payload: {
     return;
   }
 
-  console.info("[saveLead] Telegram dispatch ok:", payload.leadType, body);
+  console.info("[saveLead] Bitrix24 dispatch ok:", payload.leadType, body);
 }
 
 export async function saveLead(input: SaveLeadInput): Promise<Lead> {
@@ -48,7 +48,7 @@ export async function saveLead(input: SaveLeadInput): Promise<Lead> {
   }
 
   try {
-    await sendLeadToTelegram({
+    await sendLeadToCrm({
       contact: input.contact,
       valuation: input.valuation,
       price: input.price,
@@ -56,7 +56,7 @@ export async function saveLead(input: SaveLeadInput): Promise<Lead> {
       createdAt: lead.createdAt,
     });
   } catch (error) {
-    console.error("[saveLead] Failed to send lead to Telegram:", error);
+    console.error("[saveLead] Failed to send lead to CRM:", error);
   }
 
   return lead;
