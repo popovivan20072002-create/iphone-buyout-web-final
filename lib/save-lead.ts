@@ -29,7 +29,7 @@ async function sendLeadToRelay(payload: {
     return;
   }
 
-  console.info("[saveLead] Relay dispatch ok:", payload.leadType, body);
+  console.info("[saveLead] Lead dispatch ok:", payload.leadType, body);
 }
 
 export async function saveLead(input: SaveLeadInput): Promise<Lead> {
@@ -56,7 +56,7 @@ export async function saveLead(input: SaveLeadInput): Promise<Lead> {
       createdAt: lead.createdAt,
     });
   } catch (error) {
-    console.error("[saveLead] Failed to send lead via relay:", error);
+    console.error("[saveLead] Failed to send lead:", error);
   }
 
   return lead;

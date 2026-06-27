@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { formatLeadMessage, getRelayConfig } from "@/lib/format-lead-message";
+import { formatLeadMessage, getAlbatoWebhookUrl } from "@/lib/format-lead-message";
 import type { SaveLeadInput } from "@/lib/save-lead";
 import type { LeadType } from "@/lib/types";
 
@@ -37,10 +37,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: "Invalid payload" }, { status: 400 });
     }
 
-    const relay = getRelayConfig();
+    const albatoUrl = getAlbatoWebhookUrl();
 
-    if (!relay) {
-      console.error("[api/lead] RELAY_URL or RELAY_SECRET missing");
+    if (!albatoUrl) {
+      console.error("[api/lead] Albato env var missing");
       return NextResponse.json({ ok: false, error: "Service unavailable" }, { status: 500 });
     }
 
@@ -55,43 +55,34 @@ export async function POST(request: Request) {
       createdAt,
     });
 
-    console.info("[api/lead] Sending to relay:", {
+    console.info("[api/lead] Sending to Albato:", {
       leadType: body.leadType,
       textLength: text.length,
     });
 
-    const relayResponse = await fetch(relay.url, {
+    const albatoResponse = await fetch(albatoUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        secret: relay.secret,
-        text,
-      }),
+      body: JSON.stringify({ text }),
     });
 
-    const rawRelayBody = await relayResponse.text();
-    let relayBody: unknown;
+    const rawAlbatoBody = await albatoResponse.text();
+    let albatoBody: unknown;
 
     try {
-      relayBody = JSON.parse(rawRelayBody) as unknown;
+      albatoBody = JSON.parse(rawAlbatoBody) as unknown;
     } catch {
-      relayBody = { raw: rawRelayBody };
+      albatoBody = { raw: rawAlbatoBody };
     }
 
-    console.info("[api/lead] Relay response:", {
-      status: relayResponse.status,
-      ok: relayResponse.ok,
-      body: relayBody,
+    console.info("[api/lead] Albato response:", {
+      status: albatoResponse.status,
+      ok: albatoResponse.ok,
+      body: albatoBody,
     });
 
-    const relayOk =
-      relayResponse.ok &&
-      (relayBody === null ||
-        typeof relayBody !== "object" ||
-        (relayBody as { ok?: boolean }).ok !== false);
-
-    if (!relayOk) {
-      console.error("[api/lead] Relay delivery failed:", relayBody);
+    if (!albatoResponse.ok) {
+      console.error("[api/lead] Albato delivery failed:", albatoBody);
       return NextResponse.json({ ok: false, error: "Delivery failed" }, { status: 500 });
     }
 

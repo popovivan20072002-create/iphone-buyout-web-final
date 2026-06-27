@@ -107,10 +107,11 @@ export function formatLeadMessage(input: LeadMessageInput): string {
   return lines.join("\n");
 }
 
-export function getRelayConfig(): { url: string; secret: string } | null {
-  const url = process.env.RELAY_URL?.trim();
-  const secret = process.env.RELAY_SECRET?.trim();
+export function getAlbatoWebhookUrl(): string | null {
+  const url =
+    process.env.Albato?.trim() ||
+    process.env.ALBATO?.trim() ||
+    process.env.RELAY_URL?.trim();
 
-  if (!url || !secret) return null;
-  return { url, secret };
+  return url || null;
 }
