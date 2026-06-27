@@ -9,7 +9,7 @@ export interface SaveLeadInput {
   leadType: LeadType;
 }
 
-async function sendLeadToCrm(payload: {
+async function sendLeadToRelay(payload: {
   contact: LeadFormData;
   valuation: ValuationFormData;
   price: number;
@@ -29,7 +29,7 @@ async function sendLeadToCrm(payload: {
     return;
   }
 
-  console.info("[saveLead] Bitrix24 dispatch ok:", payload.leadType, body);
+  console.info("[saveLead] Relay dispatch ok:", payload.leadType, body);
 }
 
 export async function saveLead(input: SaveLeadInput): Promise<Lead> {
@@ -48,7 +48,7 @@ export async function saveLead(input: SaveLeadInput): Promise<Lead> {
   }
 
   try {
-    await sendLeadToCrm({
+    await sendLeadToRelay({
       contact: input.contact,
       valuation: input.valuation,
       price: input.price,
@@ -56,7 +56,7 @@ export async function saveLead(input: SaveLeadInput): Promise<Lead> {
       createdAt: lead.createdAt,
     });
   } catch (error) {
-    console.error("[saveLead] Failed to send lead to CRM:", error);
+    console.error("[saveLead] Failed to send lead via relay:", error);
   }
 
   return lead;

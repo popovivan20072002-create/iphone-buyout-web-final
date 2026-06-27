@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { buildBitrixLeadPayload, getBitrixWebhookUrl } from "@/lib/format-lead-message";
+import { formatLeadMessage, getRelayConfig } from "@/lib/format-lead-message";
 import type { SaveLeadInput } from "@/lib/save-lead";
 import type { LeadType } from "@/lib/types";
 
@@ -37,17 +37,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: "Invalid payload" }, { status: 400 });
     }
 
-    const webhookUrl = getBitrixWebhookUrl();
+    const relay = getRelayConfig();
 
-    if (!webhookUrl) {
-      console.error("[api/lead] BITRIX_WEBHOOK_URL missing");
+    if (!relay) {
+      console.error("[api/lead] RELAY_URL or RELAY_SECRET missing");
       return NextResponse.json({ ok: false, error: "Service unavailable" }, { status: 500 });
     }
 
     const createdAt =
       typeof body.createdAt === "string" ? body.createdAt : new Date().toISOString();
 
-    const bitrixPayload = buildBitrixLeadPayload({
+    const text = formatLeadMessage({
       contact: body.contact,
       valuation: body.valuation,
       price: body.price,
@@ -55,44 +55,47 @@ export async function POST(request: Request) {
       createdAt,
     });
 
-    console.info("[api/lead] Sending to Bitrix24:", {
+    console.info("[api/lead] Sending to relay:", {
       leadType: body.leadType,
-      title: bitrixPayload.fields.TITLE,
+      textLength: text.length,
     });
 
-    const bitrixResponse = await fetch(`${webhookUrl}crm.lead.add.json`, {
+    const relayResponse = await fetch(relay.url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(bitrixPayload),
+      body: JSON.stringify({
+        secret: relay.secret,
+        text,
+      }),
     });
 
-    const rawBitrixBody = await bitrixResponse.text();
-    let bitrixBody: unknown;
+    const rawRelayBody = await relayResponse.text();
+    let relayBody: unknown;
 
     try {
-      bitrixBody = JSON.parse(rawBitrixBody) as unknown;
+      relayBody = JSON.parse(rawRelayBody) as unknown;
     } catch {
-      bitrixBody = { error: rawBitrixBody };
+      relayBody = { raw: rawRelayBody };
     }
 
-    console.info("[api/lead] Bitrix24 response:", {
-      status: bitrixResponse.status,
-      ok: bitrixResponse.ok,
-      body: bitrixBody,
+    console.info("[api/lead] Relay response:", {
+      status: relayResponse.status,
+      ok: relayResponse.ok,
+      body: relayBody,
     });
 
-    if (!bitrixResponse.ok) {
+    const relayOk =
+      relayResponse.ok &&
+      (relayBody === null ||
+        typeof relayBody !== "object" ||
+        (relayBody as { ok?: boolean }).ok !== false);
+
+    if (!relayOk) {
+      console.error("[api/lead] Relay delivery failed:", relayBody);
       return NextResponse.json({ ok: false, error: "Delivery failed" }, { status: 500 });
     }
 
-    const result = bitrixBody as { result?: number; error?: string; error_description?: string };
-
-    if (result.error || result.result === undefined) {
-      console.error("[api/lead] Bitrix24 API error:", bitrixBody);
-      return NextResponse.json({ ok: false, error: "Delivery failed" }, { status: 500 });
-    }
-
-    return NextResponse.json({ ok: true, leadId: result.result });
+    return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("[api/lead] Unexpected error:", error);
     return NextResponse.json({ ok: false, error: "Internal error" }, { status: 500 });
