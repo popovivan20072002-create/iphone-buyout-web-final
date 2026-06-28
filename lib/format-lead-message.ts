@@ -21,6 +21,7 @@ export interface LeadMessageInput {
   price: number;
   leadType: LeadType;
   createdAt: string;
+  clientLabel?: string;
 }
 
 const LEAD_HEADERS: Record<LeadType, string> = {
@@ -97,7 +98,7 @@ export function formatLeadMessage(input: LeadMessageInput): string {
     `<b>💰 Итоговая цена выкупа:</b> ${escapeHtml(formatPrice(price))} ₽`,
     "",
     `<b>Контакт</b>`,
-    `Имя: Клиент с сайта`,
+    `Имя: ${escapeHtml(input.clientLabel ?? "Клиент с сайта")}`,
     `Телефон: ${escapeHtml(contact.phone)}`,
     `Telegram: ${escapeHtml(telegram)}`,
     "",

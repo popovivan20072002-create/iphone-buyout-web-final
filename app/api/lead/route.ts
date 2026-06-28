@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { formatLeadMessage, getAlbatoWebhookUrl } from "@/lib/format-lead-message";
+import { sendLeadToAlbato } from "@/lib/send-lead-to-albato";
 import type { SaveLeadInput } from "@/lib/save-lead";
 import type { LeadType } from "@/lib/types";
 
@@ -37,17 +37,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: "Invalid payload" }, { status: 400 });
     }
 
-    const albatoUrl = getAlbatoWebhookUrl();
-
-    if (!albatoUrl) {
-      console.error("[api/lead] Albato env var missing");
-      return NextResponse.json({ ok: false, error: "Service unavailable" }, { status: 500 });
-    }
-
     const createdAt =
       typeof body.createdAt === "string" ? body.createdAt : new Date().toISOString();
 
-    const text = formatLeadMessage({
+    console.info("[api/lead] Sending to Albato:", {
+      leadType: body.leadType,
+    });
+
+    const result = await sendLeadToAlbato({
       contact: body.contact,
       valuation: body.valuation,
       price: body.price,
@@ -55,34 +52,9 @@ export async function POST(request: Request) {
       createdAt,
     });
 
-    console.info("[api/lead] Sending to Albato:", {
-      leadType: body.leadType,
-      textLength: text.length,
-    });
+    console.info("[api/lead] Albato response:", result);
 
-    const albatoResponse = await fetch(albatoUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text }),
-    });
-
-    const rawAlbatoBody = await albatoResponse.text();
-    let albatoBody: unknown;
-
-    try {
-      albatoBody = JSON.parse(rawAlbatoBody) as unknown;
-    } catch {
-      albatoBody = { raw: rawAlbatoBody };
-    }
-
-    console.info("[api/lead] Albato response:", {
-      status: albatoResponse.status,
-      ok: albatoResponse.ok,
-      body: albatoBody,
-    });
-
-    if (!albatoResponse.ok) {
-      console.error("[api/lead] Albato delivery failed:", albatoBody);
+    if (!result.ok) {
       return NextResponse.json({ ok: false, error: "Delivery failed" }, { status: 500 });
     }
 
