@@ -1,6 +1,6 @@
 import type { Bot, Context } from "grammy";
 import { formatPhoneMask, isPhoneComplete } from "../lib/phone";
-import { sendLeadToAlbato } from "../lib/send-lead-to-albato";
+import { sendLeadToTelegramGroup } from "./send-lead";
 import { formatTelegramUsername } from "../lib/telegram";
 import type {
   BodyCondition,
@@ -77,7 +77,7 @@ async function submitLead(
     return false;
   }
 
-  const result = await sendLeadToAlbato({
+  const result = await sendLeadToTelegramGroup(ctx.api, {
     contact: {
       phone: session.phone,
       telegram: session.telegram,
@@ -89,7 +89,7 @@ async function submitLead(
   });
 
   if (!result.ok) {
-    console.error("[bot] Albato delivery failed:", result);
+    console.error("[bot] Telegram lead delivery failed");
   }
 
   return result.ok;

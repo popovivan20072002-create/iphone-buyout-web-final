@@ -1,6 +1,6 @@
 # Telegram-бот оценки iPhone
 
-Бот повторяет логику сайта: собирает параметры устройства, считает цену через `lib/calculate-price.ts` и отправляет заявки в Albato (группа «Лиды»).
+Бот повторяет логику сайта: собирает параметры устройства, считает цену через `lib/calculate-price.ts` и отправляет заявки напрямую в Telegram-группу «Лиды».
 
 ## Требования
 
@@ -21,10 +21,11 @@ npm install
 
 ```env
 BOT_TOKEN=123456:ABC-DEF...
-Albato=https://h.albato.ru/wh/...
+LEADS_CHAT_ID=-1001234567890
 ```
 
-`Albato` — тот же webhook, что и у сайта (также читаются `ALBATO`, `RELAY_URL`).
+- `BOT_TOKEN` — токен бота от [@BotFather](https://t.me/BotFather)
+- `LEADS_CHAT_ID` — ID группы, куда падают заявки (бот должен быть добавлен в группу)
 
 ## Запуск
 
@@ -44,7 +45,7 @@ npm run bot
 ## Деплой на VPS
 
 1. Клонировать репозиторий, `npm install`
-2. Прописать `BOT_TOKEN` и `Albato` в env
+2. Прописать `BOT_TOKEN` и `LEADS_CHAT_ID` в env
 3. Запустить через **pm2** или systemd:
 
 ```bash
@@ -58,10 +59,11 @@ pm2 save
 bot/
   index.ts      — точка входа, polling
   handlers.ts   — обработчики шагов и callback-кнопок
+  send-lead.ts  — отправка заявки в Telegram-группу
   flow.ts       — тексты шагов и переходы
   keyboards.ts  — inline-клавиатуры, «Назад»
   session.ts    — in-memory Map<chatId, state>
   types.ts      — типы сессии
 ```
 
-Общая бизнес-логика — в `lib/` (цены, расчёт, формат заявки, Albato).
+Общая бизнес-логика — в `lib/` (цены, расчёт, формат заявки).
