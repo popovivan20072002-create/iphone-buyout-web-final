@@ -1,6 +1,7 @@
 import type { Bot, Context } from "grammy";
 import { formatPhoneMask, isPhoneComplete } from "../lib/phone";
 import { sendLeadToTelegramGroup } from "./send-lead";
+import { formatStatsMessage, getStats, incrementStat } from "./stats";
 import { formatTelegramUsername } from "../lib/telegram";
 import type {
   BodyCondition,
@@ -90,9 +91,11 @@ async function submitLead(
 
   if (!result.ok) {
     console.error("[bot] Telegram lead delivery failed");
+    return false;
   }
 
-  return result.ok;
+  await incrementStat(leadType);
+  return true;
 }
 
 export function registerHandlers(bot: Bot) {
@@ -107,6 +110,18 @@ export function registerHandlers(bot: Bot) {
   bot.command("cancel", async (ctx) => {
     clearSession(ctx.chat.id);
     await ctx.reply("❌ Оценка отменена. Нажмите /start, чтобы начать заново.");
+  });
+
+  bot.command("stats", async (ctx) => {
+    const OWNER_ID = 1953345120;
+
+    if (ctx.from?.id !== OWNER_ID) {
+      await ctx.reply("Команда доступна только владельцу.");
+      return;
+    }
+
+    const stats = await getStats();
+    await ctx.reply(formatStatsMessage(stats), { parse_mode: "HTML" });
   });
 
   bot.callbackQuery(CB.START, async (ctx) => {
