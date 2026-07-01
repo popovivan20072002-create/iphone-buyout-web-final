@@ -1,6 +1,8 @@
 import type { Bot, Context } from "grammy";
 import { formatPhoneMask, isPhoneComplete } from "../lib/phone";
 import { sendLeadToTelegramGroup } from "./send-lead";
+import { isLeadsGroupChat } from "./leads-chat";
+import { registerLeadObserver } from "./lead-observer";
 import { formatStatsMessage, getStats, incrementStat } from "./stats";
 import { formatTelegramUsername } from "../lib/telegram";
 import type {
@@ -99,6 +101,8 @@ async function submitLead(
 }
 
 export function registerHandlers(bot: Bot) {
+  registerLeadObserver(bot);
+
   bot.command("start", async (ctx) => {
     resetSession(ctx.chat.id);
     const session = getSession(ctx.chat.id);
@@ -276,6 +280,8 @@ export function registerHandlers(bot: Bot) {
   });
 
   bot.on("message:contact", async (ctx) => {
+    if (isLeadsGroupChat(ctx)) return;
+
     const session = getSession(ctx.chat.id);
     if (session.step !== "phone" && session.step !== "price") return;
 
@@ -296,6 +302,8 @@ export function registerHandlers(bot: Bot) {
   });
 
   bot.on("message:text", async (ctx) => {
+    if (isLeadsGroupChat(ctx)) return;
+
     const session = getSession(ctx.chat.id);
     const text = ctx.message.text.trim();
 

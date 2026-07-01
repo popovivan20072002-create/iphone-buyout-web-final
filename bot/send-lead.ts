@@ -1,18 +1,12 @@
 import type { Api } from "grammy";
 import { formatLeadMessage } from "../lib/format-lead-message";
 import type { SendLeadToAlbatoInput } from "../lib/send-lead-to-albato";
+import { getLeadsChatId } from "./leads-chat";
+
+export { getLeadsChatId };
 
 export interface SendLeadToTelegramResult {
   ok: boolean;
-}
-
-function getLeadsChatId(): string | number | null {
-  const raw = process.env.LEADS_CHAT_ID?.trim();
-  if (!raw) return null;
-  // Как в env: -5376425055 или -100... — Telegram API принимает string и number
-  const asNumber = Number(raw);
-  if (Number.isFinite(asNumber)) return asNumber;
-  return raw;
 }
 
 export async function sendLeadToTelegramGroup(

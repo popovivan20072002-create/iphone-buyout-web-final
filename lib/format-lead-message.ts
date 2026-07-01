@@ -29,6 +29,11 @@ const LEAD_HEADERS: Record<LeadType, string> = {
   qualified: "🟢 КВАЛ — получить деньги сегодня",
 };
 
+/** Стабильная строка, есть в каждой заявке (бот и сайт). */
+export const LEAD_PRICE_MARKER = "💰 Итоговая цена выкупа:";
+
+export { LEAD_HEADERS };
+
 function escapeHtml(value: string): string {
   return value
     .replace(/&/g, "&amp;")

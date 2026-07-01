@@ -42,14 +42,18 @@ async function writeStatsFile(stats: LeadStats): Promise<void> {
 }
 
 export async function incrementStat(
-  type: "qualified" | "unqualified",
+  type: "qualified" | "unqualified" | null,
 ): Promise<void> {
   try {
     const stats = await readStatsFile();
     const now = new Date().toISOString();
 
     stats.total += 1;
-    stats[type] += 1;
+    if (type === "qualified") {
+      stats.qualified += 1;
+    } else if (type === "unqualified") {
+      stats.unqualified += 1;
+    }
     stats.lastLeadAt = now;
     if (!stats.firstLeadAt) {
       stats.firstLeadAt = now;
